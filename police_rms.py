@@ -14,6 +14,10 @@ class ValidationError(Exception):
     """Raised when a record payload is invalid."""
 
 
+class RecordNotFound(LookupError):
+    """Raised when a record ID does not exist."""
+
+
 @dataclass(frozen=True)
 class UserContext:
     user_id: str
@@ -108,9 +112,12 @@ class PoliceRMS:
     def audit_trail(self, user: UserContext, *, record_id: str | None = None) -> list[dict[str, Any]]:
         self._require_mfa(user)
         self._require_role(user, self._AUDIT_ROLES)
+        events = self._audit_events
+        if user.role != "admin":
+            events = [event for event in events if event["agency_id"] == user.agency_id]
         if record_id is None:
-            return [dict(event) for event in self._audit_events]
-        return [dict(event) for event in self._audit_events if event["record_id"] == record_id]
+            return [dict(event) for event in events]
+        return [dict(event) for event in events if event["record_id"] == record_id]
 
     @staticmethod
     def compliance_profile() -> dict[str, str]:
@@ -125,7 +132,7 @@ class PoliceRMS:
     def _get_record(self, record_id: str) -> dict[str, Any]:
         record = self._records.get(record_id)
         if record is None:
-            raise ValidationError("Record not found")
+            raise RecordNotFound("Record not found")
         return record
 
     def _require_role(self, user: UserContext, allowed_roles: set[str]) -> None:

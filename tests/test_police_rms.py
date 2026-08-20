@@ -79,6 +79,35 @@ class TestPoliceRMS(unittest.TestCase):
         events = self.rms.audit_trail(self.auditor, record_id=record_id)
 
         self.assertGreaterEqual(len(events), 2)
+        with self.assertRaises(AccessDenied):
+            self.rms.audit_trail(self.detective, record_id=record_id)
+
+    def test_auditor_is_agency_scoped(self) -> None:
+        other_officer = UserContext("u7", "records_officer", "agency-b", True)
+        other_auditor = UserContext("u8", "auditor", "agency-b", True)
+
+        self.rms.create_record(
+            self.records_officer,
+            incident_number="A-2026-006",
+            subject_name="Agency A Subject",
+            offense_code="13-106",
+            narrative="A details",
+            classification="criminal_incident",
+        )
+        self.rms.create_record(
+            other_officer,
+            incident_number="B-2026-001",
+            subject_name="Agency B Subject",
+            offense_code="13-201",
+            narrative="B details",
+            classification="criminal_incident",
+        )
+
+        agency_a_events = self.rms.audit_trail(self.auditor)
+        agency_b_events = self.rms.audit_trail(other_auditor)
+
+        self.assertTrue(all(event["agency_id"] == "agency-a" for event in agency_a_events))
+        self.assertTrue(all(event["agency_id"] == "agency-b" for event in agency_b_events))
 
 
 if __name__ == "__main__":
