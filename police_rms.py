@@ -33,6 +33,7 @@ class PoliceRMS:
     _READ_ROLES = {"records_officer", "detective", "patrol", "auditor", "admin"}
     _UPDATE_ROLES = {"records_officer", "detective", "admin"}
     _AUDIT_ROLES = {"auditor", "admin"}
+    _SEAL_ROLES = {"records_officer", "admin"}
     _SEALED_READ_ROLES = {"records_officer", "admin"}
     _CLASSIFICATIONS = {"criminal_incident", "arrest", "citation", "evidence"}
 
@@ -103,7 +104,7 @@ class PoliceRMS:
 
     def seal_record(self, user: UserContext, record_id: str) -> None:
         self._require_mfa(user)
-        self._require_role(user, {"records_officer", "admin"})
+        self._require_role(user, self._SEAL_ROLES)
         record = self._get_record(record_id)
         self._enforce_agency_scope(user, record)
         record["sealed"] = True
@@ -112,7 +113,7 @@ class PoliceRMS:
     def audit_trail(self, user: UserContext, *, record_id: str | None = None) -> list[dict[str, Any]]:
         self._require_mfa(user)
         self._require_role(user, self._AUDIT_ROLES)
-        events = self._audit_events
+        events = list(self._audit_events)
         if user.role != "admin":
             events = [event for event in events if event["agency_id"] == user.agency_id]
         if record_id is None:

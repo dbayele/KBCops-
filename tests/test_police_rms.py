@@ -109,6 +109,32 @@ class TestPoliceRMS(unittest.TestCase):
         self.assertTrue(all(event["agency_id"] == "agency-a" for event in agency_a_events))
         self.assertTrue(all(event["agency_id"] == "agency-b" for event in agency_b_events))
 
+    def test_admin_can_view_cross_agency_audit_events(self) -> None:
+        other_officer = UserContext("u9", "records_officer", "agency-b", True)
+        admin = UserContext("admin", "admin", "hq", True)
+
+        self.rms.create_record(
+            self.records_officer,
+            incident_number="A-2026-007",
+            subject_name="Agency A Subject",
+            offense_code="13-107",
+            narrative="A details",
+            classification="criminal_incident",
+        )
+        self.rms.create_record(
+            other_officer,
+            incident_number="B-2026-002",
+            subject_name="Agency B Subject",
+            offense_code="13-202",
+            narrative="B details",
+            classification="criminal_incident",
+        )
+
+        events = self.rms.audit_trail(admin)
+        agencies = {event["agency_id"] for event in events}
+        self.assertIn("agency-a", agencies)
+        self.assertIn("agency-b", agencies)
+
 
 if __name__ == "__main__":
     unittest.main()
